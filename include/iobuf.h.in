@@ -1,0 +1,169 @@
+#ifndef __IOBUF_H__
+#define __IOBUF_H__
+
+#ifndef _LARGEFILE64_SOURCE
+# define _LARGEFILE64_SOURCE
+#endif
+
+/*
+	Platform defines
+
+	The use of these should be limited as much as possible.  Specific tests for
+	features of the platform are prefered.
+*/
+#ifndef LINUX
+#cmakedefine LINUX					1
+#endif
+
+#ifndef WIN32
+#cmakedefine WIN32					1
+#endif
+#ifndef WINDOWS
+#cmakedefine WINDOWS				1
+
+#endif
+
+
+#ifndef MACOSX
+#cmakedefine MACOSX					1
+#endif
+#ifndef DARWIN
+#cmakedefine DARWIN					1
+#endif
+#ifndef APPLE
+#cmakedefine APPLE					1
+#endif
+
+#cmakedefine DEBUG					1
+
+#ifdef WINDOWS
+# define		WIN_CDECL		__cdecl
+# define		WIN_STDCALL		__stdcall
+# define		EXPORT			__declspec(dllexport)
+# define		IMPORT			__declspec(dllimport)
+# define		INLINE			__inline
+#else
+# define		WIN_CDECL
+# define		WIN_STDCALL
+# define		EXPORT
+# define		IMPORT
+# define		INLINE			__inline
+#endif
+
+#include <stdio.h>
+#include <errno.h>
+#include <xpltypes.h>
+#include <xplmem.h>
+
+
+
+#define XplConsolePrintf printf
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#if defined __GNUC__
+#define XplFormatString(formatStringIndex, firstToCheck)	__attribute__ ((format (printf, formatStringIndex, firstToCheck)))
+#else
+#define XplFormatString(formatStringIndex, firstToCheck)
+#endif
+
+
+#define DebugAssert( arg )
+
+#define SEARCH_IGNORE_CR		0x00000001
+#define SEARCH_REPLACE_NULL		0x00000002
+#define SEARCH_ANY_CR			0x00000004
+
+typedef struct
+{
+	char			*r;					// read
+	char			*w;					// write
+	char			*end;				// end of buffer (points to extra byte, not data)
+	int				precious;			// keep data that has been read
+	int				(*flushCB)(void *, char *, int);	// user flush callback
+	void			*flushHandle;		// user handle for flush
+	int				(*fillCB)(void *, char *, int);		// user fill callback
+	void			*fillHandle;		// user handle for fill
+	char			buffer[1];
+}IOBuffer;
+
+#define IOF_WRITE		0
+#define IOF_READ		1
+
+typedef struct
+{
+	IOBuffer	*iob;
+	FILE		*fp;
+	long		readP;
+	long		writeP;
+	int			state;
+	char		fileName[];
+}IOBFile;
+
+#define StaticIOBuffer( name, size )	IOBuffer name;char name##_buffer[size+1];
+
+#define IOBAlloc(s)										IOBAllocEx( (s), __FILE__, __LINE__)
+EXPORT IOBuffer *IOBAllocEx( size_t size, char *file, int line );
+#define IOBRealloc( i, s )								IOBReallocEx( (i), (s), __FILE__, __LINE__ )
+EXPORT int IOBReallocEx( IOBuffer **iob, size_t size, char *file, int line );
+EXPORT void IOBFree( IOBuffer *iob );
+EXPORT int IOBInit( IOBuffer *iob );
+EXPORT int IOBGetFree( IOBuffer *iob, char **data );
+EXPORT int IOBMarkUsed( IOBuffer *iob, int len );
+EXPORT int IOBFill( IOBuffer *iob );
+EXPORT int IOBGetUsed( IOBuffer *iob, char **data );
+EXPORT int IOBMarkFree( IOBuffer *iob, int len );
+EXPORT int IOBWrite( IOBuffer *iob, char *data, int len );
+EXPORT size_t IOBWriteWJ( char *buffer, size_t length, void *handle );
+EXPORT int IOBRead( IOBuffer *iob, char *data, int len );
+EXPORT size_t IOBReadWJ( char *buffer, size_t length, size_t seen, void *handle );
+EXPORT int IOBFlush( IOBuffer *iob );
+EXPORT size_t IOBRun( IOBuffer *iob );
+EXPORT int IOBSetFlushCB( IOBuffer *iob, int (*flushCB)(void *, char *, int), void *flushHandle );
+EXPORT int IOBSetFillCB( IOBuffer *iob, int (*fillCB)(void *, char *, int), void *fillHandle );
+EXPORT int IOBDefrag( IOBuffer *iob );
+EXPORT int IOBIncreaseFree( IOBuffer *iob );
+EXPORT int IOBSearch( IOBuffer *iob, char *pattern, int flags, char **data, char **match, int *matchLen );
+EXPORT void IOBPrint( IOBuffer *iob );
+EXPORT XplBool IOBLog( IOBuffer *iob, char *msg, int size );
+#define IOBFileOpen( fileName, bufferSize )    			IOBFileOpenEx( ( fileName ), ( bufferSize ), __FILE__, __LINE__ )
+EXPORT IOBFile *IOBFileOpenEx( char *fileName, int bufferSize, const char *file, const int line );
+#define IOBFileCreate( fileName, bufferSize )    		IOBFileCreateEx( ( fileName ), ( bufferSize ), __FILE__, __LINE__ )
+EXPORT IOBFile *IOBFileCreateEx( char *fileName, int bufferSize, const char *file, const int line );
+EXPORT int IOBFileClose( IOBFile *iof, int keep );
+EXPORT int IOBFileWrite( IOBFile *iof, char *data, int len );
+EXPORT int IOBFileRead( IOBFile *iof, char *data, int len );
+EXPORT int IOBFilePeek( IOBFile *iof, char **data );
+EXPORT int IOBFileSeen( IOBFile *iof, int len );
+EXPORT int MemSearch( char *buffer, int len, char *pattern, int patternLen, int flags, char **match, int *matchLen );
+EXPORT int IOBFileSearch( IOBFile *iof, char *pattern, int flags, char **data, char **match, int *matchLen );
+EXPORT int IOBFileRewind( IOBFile *iof );
+EXPORT long IOBFileSize( IOBFile *iof );
+EXPORT long IOBFileGetPosition( IOBFile *iof );
+EXPORT int IOBFileSetPosition( IOBFile *iof, long position );
+
+// TLog
+EXPORT int TLogStartup( const char *consumer );
+EXPORT int TLogShutdown( void );
+EXPORT int TLogOpen( void );
+EXPORT int TLogWrite( const char *format, ... ) XplFormatString(1,2);
+EXPORT int TLogFlush( void );
+EXPORT int TLogClose( void );
+
+#ifdef __cplusplus
+}
+#endif
+
+
+
+
+
+
+
+
+
+#endif
+
+
